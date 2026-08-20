@@ -1,3 +1,18 @@
+## 🚀 Live Demo
+
+You can access the deployed application here:
+
+**[Scanline — Document Summary Agent](https://unthink-document-kcvj4vm5a-amarthya-14s-projects.vercel.app/)**
+
+> The application is deployed on Vercel and can be used directly from the browser without any local setup.
+
+# Scanline — Document Summary Agent
+
+Upload a PDF or a scanned image and a single AI agent extracts the text,
+falls back to OCR when there's no text layer, and reasons its way to a
+structured summary — with every step visible as it happens.
+
+
 # Scanline — Document Summary Agent
 
 Upload a PDF or a scanned image and a single AI agent extracts the text,
