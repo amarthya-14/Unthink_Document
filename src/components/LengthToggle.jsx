@@ -31,7 +31,8 @@ export default function LengthToggle({ value, onChange, disabled }) {
           aria-checked={value === opt.value}
           onClick={() => onChange(opt.value)}
           className={`
-            relative z-10 px-3.5 py-1.5 text-sm font-body rounded transition-colors duration-200
+            relative z-10 px-3.5 py-2.5 sm:py-1.5 text-sm font-body rounded transition-colors duration-200
+            min-h-[40px] sm:min-h-0
             ${value === opt.value ? 'text-ink-950 font-medium' : 'text-paper-100/55 hover:text-paper-100'}
           `}
         >
