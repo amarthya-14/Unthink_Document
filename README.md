@@ -12,13 +12,6 @@ Upload a PDF or a scanned image and a single AI agent extracts the text,
 falls back to OCR when there's no text layer, and reasons its way to a
 structured summary — with every step visible as it happens.
 
-
-# Scanline — Document Summary Agent
-
-Upload a PDF or a scanned image and a single AI agent extracts the text,
-falls back to OCR when there's no text layer, and reasons its way to a
-structured summary — with every step visible as it happens.
-
 ## Stack
 
 | Layer | Tool | Why |
