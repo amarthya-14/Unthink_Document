@@ -1,11 +1,3 @@
-## 🚀 Live Demo
-
-You can access the deployed application here:
-
-**[Scanline — Document Summary Agent](https://unthink-document-kcvj4vm5a-amarthya-14s-projects.vercel.app/)**
-
-> The application is deployed on Vercel and can be used directly from the browser without any local setup.
-
 # Scanline — Document Summary Agent
 
 Upload a PDF or a scanned image and a single AI agent extracts the text,

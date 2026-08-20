@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import UploadZone from './components/UploadZone'
 import AgentLog from './components/AgentLog'
 import Stepper from './components/Stepper'
@@ -11,6 +12,15 @@ import { runSummaryAgent } from './lib/agent'
 const PROVIDER = import.meta.env.VITE_AI_PROVIDER === 'groq' ? 'groq' : 'gemini'
 const API_KEY =
   PROVIDER === 'groq' ? import.meta.env.VITE_GROQ_API_KEY : import.meta.env.VITE_GEMINI_API_KEY
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+}
+const item = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+}
 
 export default function App() {
   const [fileName, setFileName] = useState('')
@@ -106,32 +116,47 @@ export default function App() {
         </div>
       </div>
 
-      <header className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-8 w-full">
-        <p className="inline-block font-mono text-xs uppercase tracking-[0.2em] text-steel-400 mb-3 px-2 py-1 -mx-2 rounded transition-colors duration-200 hover:text-steel-300 hover:bg-steel-400/5">
+      <motion.header
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-8 w-full"
+      >
+        <motion.p
+          variants={item}
+          className="inline-block font-mono text-xs uppercase tracking-[0.2em] text-steel-400 mb-3 px-2 py-1 -mx-2 rounded transition-colors duration-200 hover:text-steel-300 hover:bg-steel-400/5"
+        >
           Document Summary Agent
-        </p>
-        <h1 className="font-display text-3xl sm:text-5xl text-paper-50 leading-tight max-w-2xl">
+        </motion.p>
+        <motion.h1 variants={item} className="font-display text-3xl sm:text-5xl text-paper-50 leading-tight max-w-2xl">
           Feed it a document.
           <br />
           Watch the agent read it.
-        </h1>
-        <p className="mt-4 text-paper-100/50 font-body max-w-xl text-[15px]">
+        </motion.h1>
+        <motion.p variants={item} className="mt-4 text-paper-100/50 font-body max-w-xl text-[15px]">
           Upload a PDF or a scanned image. A single agent extracts the text,
           falls back to OCR when needed, and reasons its way to a summary —
           you can watch each step happen below.
-        </p>
-      </header>
+        </motion.p>
+      </motion.header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-24 grid md:grid-cols-2 gap-6 w-full flex-1">
+      <motion.main
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="max-w-5xl mx-auto px-4 sm:px-6 pb-24 grid md:grid-cols-2 gap-6 w-full flex-1"
+      >
         <div className="space-y-6 min-w-0">
-          <UploadZone onFileAccepted={process} disabled={isActive} />
+          <motion.div variants={item}>
+            <UploadZone onFileAccepted={process} disabled={isActive} />
+          </motion.div>
 
-          <div className="flex items-center justify-between flex-wrap gap-3">
+          <motion.div variants={item} className="flex items-center justify-between flex-wrap gap-3">
             <span className="text-sm font-body text-paper-100/50 transition-colors duration-200">
               Summary length
             </span>
             <LengthToggle value={length} onChange={setLength} disabled={isActive} />
-          </div>
+          </motion.div>
 
           {phase !== 'idle' && (
             <div className="rounded-lg border border-ink-700 bg-ink-800/60 px-4 sm:px-6 py-5 animate-[fadeIn_0.3s_ease-out]">
@@ -139,13 +164,15 @@ export default function App() {
             </div>
           )}
 
-          <AgentLog steps={steps} fileName={fileName} isActive={isActive} />
+          <motion.div variants={item}>
+            <AgentLog steps={steps} fileName={fileName} isActive={isActive} />
+          </motion.div>
         </div>
 
-        <div className="min-w-0">
+        <motion.div variants={item} className="min-w-0">
           <SummaryPanel result={result} error={error} isLoading={phase === 'summarize'} />
-        </div>
-      </main>
+        </motion.div>
+      </motion.main>
 
       <footer className="max-w-5xl mx-auto px-4 sm:px-6 pb-10 w-full">
         <p className="inline-block text-xs font-mono text-paper-100/25 transition-colors duration-200 hover:text-paper-100/45">
