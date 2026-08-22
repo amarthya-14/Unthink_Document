@@ -1,84 +1,53 @@
 # Scanline — Document Summary Agent
 
-Upload a PDF or a scanned image and a single AI agent extracts the text,
-falls back to OCR when there's no text layer, and reasons its way to a
-structured summary — with every step visible as it happens.
+Live demo: **[unthink-document.vercel.app](https://unthink-document.vercel.app/)**
+
+Upload a PDF or a scanned image, and an agent reads it, falls back to OCR when there's no text layer to pull from, and works its way to a summary — you can watch every step happen in real time instead of just staring at a spinner.
 
 ## Stack
 
-| Layer | Tool | Why |
-|---|---|---|
-| Frontend | React + Vite + Tailwind | Fast build, no backend needed |
-| PDF parsing | `pdfjs-dist` | Runs entirely client-side |
-| OCR | `tesseract.js` | Runs entirely client-side, no API cost |
-| Agent | Gemini 2.5 Flash (default) or Groq Llama, via tool calling | Free tier, no card required, structured output |
-| Hosting | Vercel / Netlify | One-click, free static hosting |
+- **React + Vite + Tailwind** for the frontend — no backend to host or pay for
+- **pdf.js** for PDF text extraction, running entirely in the browser
+- **Tesseract.js** for OCR on images and scanned PDFs, also fully client-side
+- **Gemini 2.5 Flash** as the default summarization model, with **Groq (Llama)** as an automatic fallback if Gemini's ever unavailable
+- **Vercel** for hosting — free tier, deploys on every push
 
-Everything runs in the browser except the single call to the AI provider for
-summarization — no backend server, no file ever leaves the user's machine
-except the extracted text sent to the model.
+Nothing gets uploaded to a server. The only network call in the whole app is the extracted text going to whichever AI provider is doing the summarizing.
 
-## Why this counts as an "agent," not just a prompt
+## Why it's an agent and not just a prompt
 
-`src/lib/agent.js` gives the model one tool, `emit_summary`, with a strict
-schema, and lets the model decide the content — title, summary, key points,
-and document type — from open-ended text rather than following a fixed
-template. Providers (`src/lib/providers/gemini.js`, `groq.js`) share the same
-schema, so swapping the underlying model doesn't change the app's data shape
-or the calling code — the actual point of a tool-calling agent over a single
-hardcoded prompt.
+The model isn't asked to "write a summary" in free text — it's given one tool, `emit_summary`, with a strict schema (title, summary, key points, document type), and it has to call that tool to produce output. That constraint is what makes the output structured and predictable instead of a wall of text I'd have to parse myself.
 
-## Setup
+Gemini and Groq both plug into the exact same schema, so switching providers is a config change, not a rewrite — useful because free-tier model availability shifts around more than you'd think, and I didn't want the whole thing to break every time a model got renamed.
+
+## Running it locally
 
 ```bash
 npm install
 cp .env.example .env
 ```
 
-Get a free Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-(no billing card required) and paste it into `.env` as `VITE_GEMINI_API_KEY`.
+Grab a free Gemini key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — no card needed — and drop it into `.env` as `VITE_GEMINI_API_KEY`.
 
 ```bash
 npm run dev
 ```
 
-### Switching providers
-
-Set `VITE_AI_PROVIDER=groq` in `.env` and provide `VITE_GROQ_API_KEY` to use
-Groq's Llama models instead — faster inference, but generally slightly less
-polished summaries on the free-tier models. Gemini is the default because it
-tends to produce noticeably better structured output for this use case.
+Want to use Groq instead? Set `VITE_AI_PROVIDER=groq` and add `VITE_GROQ_API_KEY`. Gemini's the default because it's noticeably better at sticking to the schema, but Groq's faster and works fine as a backup.
 
 ## Deploying
 
-Push to GitHub, then import the repo into Vercel. Add `VITE_AI_PROVIDER` and
-`VITE_GEMINI_API_KEY` (or the Groq equivalents) as environment variables in
-the Vercel project settings, then redeploy. No other config needed —
-`vite build` is the default build command, and every push to `main`
-auto-redeploys once the repo is connected.
+Push to GitHub, import into Vercel, add your env vars under Project Settings → Environment Variables, deploy. That's it — every push to `main` redeploys automatically after that.
 
-## Known limitation
+## A known rough edge
 
-Scanned PDFs with no embedded text layer are OCR'd directly via
-`tesseract.js`'s PDF support. If you hit issues with a particular scanned
-PDF in your environment, the more robust fix is rendering each PDF page
-to a `<canvas>` with `pdf.js` first and OCR-ing the resulting images —
-left as a straightforward extension given the time budget.
+Scanned PDFs with no embedded text layer get OCR'd directly through Tesseract's PDF support. It works, but the more bulletproof approach would be rendering each page to a canvas first and OCR-ing the resulting images individually — I scoped that out to keep things moving, but it's the obvious next improvement if OCR accuracy becomes an issue on a particular file.
 
-## Approach (write-up, <200 words)
+## The approach, briefly
 
-I kept the whole pipeline client-side to avoid backend cost and hosting
-complexity: `pdf.js` extracts text directly in-browser, and `tesseract.js`
-handles OCR for images or scanned PDFs with no text layer, so nothing is
-uploaded anywhere except the final extracted text sent to the summarizer.
+I kept everything client-side on purpose — no backend meant no hosting cost and nothing to keep alive. pdf.js handles text extraction, Tesseract handles OCR when there's nothing to extract, and the only thing that ever leaves the browser is the extracted text going to the summarizer.
 
-For summarization, I used a real tool-calling agent (Gemini 2.5 Flash by
-default, Groq Llama as a swappable alternative) rather than a single
-freeform prompt — the model must call `emit_summary` with a strict schema
-(title, summary, key points, document type), which keeps output structured
-and makes the agent easy to extend with more tools later without changing
-the UI. Both providers share one schema, so the provider is just a
-configuration choice, not a rewrite.
+For the summarization itself, I didn't want a single hardcoded prompt — I wanted something that would hold up if I swapped models later, which is why it's built around one shared tool schema that both Gemini and Groq call into. If one provider goes down or a model gets deprecated, the app just tries the next one instead of falling over.
 
 The interface treats the agent's reasoning as part of the product: a visual
 stepper plus a detailed log shows extraction → OCR fallback → summarization
