@@ -42,6 +42,28 @@ export default function UploadZone({ onFileAccepted, disabled }) {
       {/* soft ambient glow that appears on hover */}
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_50%_30%,rgba(76,122,146,0.12),transparent_60%)]" />
 
+      {/* viewfinder corner brackets — echoes the intro screen's scanner motif */}
+      {[
+        { pos: 'top-3 left-3', rotate: 0 },
+        { pos: 'top-3 right-3', rotate: 90 },
+        { pos: 'bottom-3 right-3', rotate: 180 },
+        { pos: 'bottom-3 left-3', rotate: 270 },
+      ].map((c, i) => (
+        <svg
+          key={i}
+          width="14"
+          height="14"
+          viewBox="0 0 28 28"
+          fill="none"
+          className={`pointer-events-none absolute ${c.pos} text-brass-500 opacity-0 ${
+            isDragActive ? 'opacity-70' : 'group-hover:opacity-40'
+          } transition-opacity duration-300`}
+          style={{ transform: `rotate(${c.rotate}deg)` }}
+        >
+          <path d="M2 12V4a2 2 0 012-2h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      ))}
+
       <svg
         width="40"
         height="40"

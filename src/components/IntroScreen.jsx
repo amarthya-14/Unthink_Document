@@ -1,18 +1,21 @@
 import { useRef } from 'react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 
+const RULER_TICKS = Array.from({ length: 12 })
+
 export default function IntroScreen({ onScan }) {
-  const cardRef = useRef(null)
+  const wrapRef = useRef(null)
   const mx = useMotionValue(0)
   const my = useMotionValue(0)
 
-  const rotateX = useSpring(useTransform(my, [-0.5, 0.5], [7, -7]), { stiffness: 160, damping: 18 })
-  const rotateY = useSpring(useTransform(mx, [-0.5, 0.5], [-7, 7]), { stiffness: 160, damping: 18 })
-  const glowX = useTransform(mx, [-0.5, 0.5], ['20%', '80%'])
-  const glowY = useTransform(my, [-0.5, 0.5], ['20%', '80%'])
+  // Very subtle parallax drift on the framing elements — depth without a
+  // card that tilts. Brackets and grid shift a few px opposite the cursor.
+  const shiftX = useSpring(useTransform(mx, [-0.5, 0.5], [10, -10]), { stiffness: 60, damping: 20 })
+  const shiftY = useSpring(useTransform(my, [-0.5, 0.5], [8, -8]), { stiffness: 60, damping: 20 })
+  const beamX = useTransform(mx, [-0.5, 0.5], ['42%', '58%'])
 
   function handleMouseMove(e) {
-    const rect = cardRef.current.getBoundingClientRect()
+    const rect = wrapRef.current.getBoundingClientRect()
     mx.set((e.clientX - rect.left) / rect.width - 0.5)
     my.set((e.clientY - rect.top) / rect.height - 0.5)
   }
@@ -24,83 +27,183 @@ export default function IntroScreen({ onScan }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900 overflow-hidden px-6"
+      ref={wrapRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="fixed inset-0 z-50 bg-ink-900 overflow-hidden select-none"
       exit={{ opacity: 0, transition: { duration: 0.35, ease: 'easeOut' } }}
     >
-      {/* ambient background glow */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(76,122,146,0.14),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(201,162,39,0.06),transparent_45%)]" />
-
+      {/* faint blueprint grid, fills the whole viewport */}
       <motion.div
-        ref={cardRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{ rotateX, rotateY, transformPerspective: 1000 }}
-        initial={{ opacity: 0, y: 28, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-[300px] sm:w-[360px] aspect-[3/4] bg-paper-50 rounded-[3px] flex flex-col p-7 sm:p-9 shadow-[0_50px_100px_-25px_rgba(0,0,0,0.65)]"
+        style={{ x: shiftX, y: shiftY }}
+        className="pointer-events-none absolute -inset-8 opacity-[0.05]"
       >
-        {/* mouse-follow sheen */}
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-[3px] opacity-60"
-          style={{
-            background: useTransform(
-              [glowX, glowY],
-              ([x, y]) => `radial-gradient(circle at ${x} ${y}, rgba(255,255,255,0.5), transparent 45%)`
-            ),
-          }}
-        />
-        {/* subtle paper grain */}
         <div
-          className="pointer-events-none absolute inset-0 rounded-[3px] opacity-[0.04] mix-blend-multiply"
+          className="w-full h-full"
           style={{
             backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+              'linear-gradient(to right, #F6F3EC 1px, transparent 1px), linear-gradient(to bottom, #F6F3EC 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
           }}
         />
+      </motion.div>
 
-        <span className="relative font-mono text-[10px] uppercase tracking-[0.25em] text-ink-800/40">
-          Document Intake
-        </span>
+      {/* ambient glow, off-center so it isn't just a centered blob */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(76,122,146,0.14),transparent_45%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_82%,rgba(201,162,39,0.08),transparent_40%)]" />
 
-        <div className="relative flex-1 flex flex-col items-center justify-center text-center">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className="text-brass-600 mb-4">
-            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M7 9h10M7 13h10M7 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <h1 className="font-display text-4xl sm:text-[44px] text-ink-900 tracking-tight">Scanline</h1>
-          <p className="mt-3 font-body text-sm leading-relaxed text-ink-800/55 max-w-[220px]">
-            A single agent that reads, understands, and summarizes any document you hand it.
-          </p>
+      {/* idle ambient scan beam, slowly breathing top to bottom while waiting */}
+      <motion.div
+        className="pointer-events-none absolute inset-x-0 h-24 bg-gradient-to-b from-transparent via-brass-500/[0.05] to-transparent"
+        animate={{ top: ['-10%', '110%'] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'linear' }}
+      />
+
+      {/* viewfinder corner brackets, framing the entire page like a scanner bed */}
+      <motion.div style={{ x: shiftX, y: shiftY }} className="pointer-events-none absolute inset-0">
+        {[
+          { pos: 'top-6 left-6 sm:top-10 sm:left-10', rotate: 0 },
+          { pos: 'top-6 right-6 sm:top-10 sm:right-10', rotate: 90 },
+          { pos: 'bottom-6 right-6 sm:bottom-10 sm:right-10', rotate: 180 },
+          { pos: 'bottom-6 left-6 sm:bottom-10 sm:left-10', rotate: 270 },
+        ].map((c, i) => (
+          <motion.svg
+            key={i}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 + i * 0.08, duration: 0.5 }}
+            width="28"
+            height="28"
+            viewBox="0 0 28 28"
+            fill="none"
+            className={`absolute ${c.pos} text-brass-500/70`}
+            style={{ transform: `rotate(${c.rotate}deg)` }}
+          >
+            <path d="M2 12V4a2 2 0 012-2h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </motion.svg>
+        ))}
+      </motion.div>
+
+      {/* left-edge ruler, reinforcing the "scanner bed" idea */}
+      <div className="pointer-events-none hidden sm:flex absolute left-5 top-1/2 -translate-y-1/2 flex-col items-center gap-3 font-mono text-[10px] text-paper-100/20">
+        {RULER_TICKS.map((_, i) => (
+          <span key={i} className="w-px h-3 bg-paper-100/20" />
+        ))}
+      </div>
+
+      {/* main content, filling the page rather than sitting in a small card */}
+      <div className="relative h-full w-full flex flex-col items-center justify-center px-6 text-center">
+        <motion.span
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="font-mono text-[11px] uppercase tracking-[0.35em] text-steel-400 mb-5"
+        >
+          Document Intake · Ready to Scan
+        </motion.span>
+
+        <div className="relative">
+          {/* chromatic "misaligned scan" ghost layers converging into focus */}
+          <motion.h1
+            aria-hidden="true"
+            initial={{ x: -14, y: 6, opacity: 0 }}
+            animate={{ x: 0, y: 0, opacity: 0.55 }}
+            transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-none absolute inset-0 font-display text-[clamp(4rem,19vw,13rem)] leading-[0.9] tracking-tight text-steel-400 mix-blend-screen"
+          >
+            Scanline
+          </motion.h1>
+          <motion.h1
+            aria-hidden="true"
+            initial={{ x: 14, y: -6, opacity: 0 }}
+            animate={{ x: 0, y: 0, opacity: 0.45 }}
+            transition={{ duration: 1, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-none absolute inset-0 font-display text-[clamp(4rem,19vw,13rem)] leading-[0.9] tracking-tight text-brass-400 mix-blend-screen"
+          >
+            Scanline
+          </motion.h1>
+
+          {/* the real, crisp title */}
+          <motion.h1
+            initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              filter: 'blur(0px)',
+              textShadow: [
+                '0 0 90px rgba(217,184,74,0.25), 0 0 30px rgba(217,184,74,0.12)',
+                '0 0 110px rgba(217,184,74,0.35), 0 0 36px rgba(217,184,74,0.18)',
+                '0 0 90px rgba(217,184,74,0.25), 0 0 30px rgba(217,184,74,0.12)',
+              ],
+            }}
+            transition={{
+              opacity: { duration: 0.85, delay: 0.3, ease: [0.16, 1, 0.3, 1] },
+              y: { duration: 0.85, delay: 0.3, ease: [0.16, 1, 0.3, 1] },
+              filter: { duration: 0.85, delay: 0.3, ease: [0.16, 1, 0.3, 1] },
+              textShadow: { duration: 3.5, delay: 1.2, repeat: Infinity, ease: 'easeInOut' },
+            }}
+            className="relative font-display text-[clamp(4rem,19vw,13rem)] leading-[0.9] tracking-tight text-paper-50"
+          >
+            Scanline
+          </motion.h1>
+
+          {/* scan line that sweeps once across the wordmark as it settles */}
+          <motion.div
+            initial={{ top: '-10%', opacity: 1 }}
+            animate={{ top: '110%', opacity: [1, 1, 0] }}
+            transition={{ duration: 0.9, delay: 0.35, ease: [0.65, 0, 0.35, 1] }}
+            className="pointer-events-none absolute inset-x-[-5%] h-[3px] bg-brass-300 shadow-[0_0_24px_6px_rgba(217,184,74,0.7)]"
+          />
         </div>
+
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.7, delay: 0.6, ease: [0.65, 0, 0.35, 1] }}
+          className="h-px w-40 sm:w-56 bg-gradient-to-r from-transparent via-brass-500 to-transparent origin-center mt-6 mb-6"
+        />
+
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.55 }}
+          className="font-body text-[15px] sm:text-base text-paper-100/50 max-w-sm"
+        >
+          A single agent that reads, understands, and summarizes any document you hand it.
+        </motion.p>
 
         <motion.button
           type="button"
           onClick={onScan}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          className="relative group w-full py-3 rounded-[2px] bg-ink-900 text-paper-50 font-mono text-xs uppercase tracking-[0.15em] flex items-center justify-center gap-2 overflow-hidden"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.75 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          className="group relative mt-10 px-8 py-3.5 rounded-[2px] font-mono text-xs uppercase tracking-[0.2em] text-paper-50 overflow-hidden border border-brass-500/40"
         >
-          <span className="absolute inset-0 bg-gradient-to-r from-brass-600 via-brass-500 to-brass-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <span className="relative group-hover:text-ink-950 transition-colors duration-300">Scan Now</span>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="relative transition-transform duration-300 group-hover:translate-x-1 group-hover:text-ink-950"
-          >
-            <path d="M2 8h11M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <span className="absolute inset-0 bg-brass-500 -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+          <span className="relative flex items-center gap-2.5 group-hover:text-ink-950 transition-colors duration-200">
+            Scan Now
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
+              <path d="M2 8h11M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </motion.button>
+      </div>
+
+      {/* moving x-position readout, ties the cursor to the "scanner head" metaphor */}
+      <motion.div
+        style={{ left: beamX }}
+        className="pointer-events-none hidden sm:block absolute top-8 -translate-x-1/2 font-mono text-[10px] text-brass-500/40 tracking-widest"
+      >
+        SCAN·HEAD
       </motion.div>
 
       <button
         type="button"
         onClick={onScan}
-        className="absolute bottom-6 text-xs font-mono text-paper-100/25 hover:text-paper-100/50 transition-colors duration-200 underline underline-offset-4"
+        className="absolute bottom-7 left-1/2 -translate-x-1/2 text-xs font-mono text-paper-100/25 hover:text-paper-100/50 transition-colors duration-200 underline underline-offset-4"
       >
         skip
       </button>

@@ -2,16 +2,15 @@
  * SummaryAgent
  * ------------
  * A single tool-using agent responsible for turning raw extracted document
- * text into a structured summary. It is a real agent rather than one
- * static prompt: given the extracted text and the user's requested length,
- * it decides how to call its one tool (`emit_summary`), and the same
- * function schema is shared across providers so swapping the underlying
- * model doesn't change the app's data shape.
+ * text into a structured summary, with automatic provider fallback: if the
+ * primary provider (Gemini, by default) is unavailable — key missing,
+ * rate-limited, model retired, network hiccup — the agent transparently
+ * retries with the next configured provider (Groq, the "basic" fallback)
+ * rather than failing outright. Both providers implement the same
+ * emit_summary schema, so the fallback is invisible to the rest of the app.
  *
- * Provider is selected via VITE_AI_PROVIDER ('gemini' | 'groq'), default
- * 'gemini' — Gemini 2.5 Flash's free tier needs no billing card and
- * generally produces better-structured summaries than the small free
- * Groq models. Groq is kept available as a faster, alternate option.
+ * Order is controlled by VITE_AI_PROVIDER ('gemini' | 'groq', default
+ * 'gemini'). Only providers with a configured API key are tried.
  */
 
 import { callGemini } from './providers/gemini'
@@ -60,25 +59,61 @@ const SYSTEM_PROMPT =
   'errors, silently work around minor noise rather than commenting on it. Write in ' +
   'clear, natural prose — avoid generic filler like "this document discusses".'
 
-export async function runSummaryAgent({ text, length = 'medium', apiKey, provider, onStep }) {
-  if (!apiKey) {
+// Gemini's free-tier context window is far larger than Groq's, so a bigger
+// document can be summarized more completely there before truncation kicks in.
+const MAX_CHARS = { gemini: 120000, groq: 20000 }
+
+const PREFERRED = import.meta.env.VITE_AI_PROVIDER === 'groq' ? 'groq' : 'gemini'
+
+function buildProviderList() {
+  const candidates = [
+    { name: 'gemini', label: 'Gemini', key: import.meta.env.VITE_GEMINI_API_KEY, call: callGemini },
+    { name: 'groq', label: 'Groq (basic)', key: import.meta.env.VITE_GROQ_API_KEY, call: callGroq },
+  ].filter((p) => p.key)
+
+  candidates.sort((a) => (a.name === PREFERRED ? -1 : 1))
+  return candidates
+}
+
+export async function runSummaryAgent({ text, length = 'medium', onStep }) {
+  const providers = buildProviderList()
+
+  if (providers.length === 0) {
     throw new Error(
-      `Missing API key for ${provider}. Add it to your .env file (see README).`
+      'No AI provider configured. Add VITE_GEMINI_API_KEY and/or VITE_GROQ_API_KEY to your .env file.'
     )
   }
 
   onStep?.({ label: 'Agent received extracted text', detail: `${text.length.toLocaleString()} characters` })
 
-  const truncated = text.length > 18000 ? text.slice(0, 18000) + '\n[...truncated for length...]' : text
-  const userPrompt = `Analyze the following document text and call emit_summary with a summary of ${LENGTH_GUIDANCE[length]}.\n\nDOCUMENT TEXT:\n"""\n${truncated}\n"""`
+  let lastError = null
 
-  onStep?.({ label: 'Agent deciding how to summarize', detail: `Target length: ${length} · via ${provider}` })
+  for (const provider of providers) {
+    const maxChars = MAX_CHARS[provider.name] ?? 20000
+    const truncated =
+      text.length > maxChars ? text.slice(0, maxChars) + '\n[...truncated for length...]' : text
+    const userPrompt = `Analyze the following document text and call emit_summary with a summary of ${LENGTH_GUIDANCE[length]}.\n\nDOCUMENT TEXT:\n"""\n${truncated}\n"""`
 
-  const args = { apiKey, systemPrompt: SYSTEM_PROMPT, userPrompt, functionSchema: FUNCTION_SCHEMA, onStep }
+    onStep?.({ label: `Summarizing via ${provider.label}`, detail: `Target length: ${length}` })
 
-  const parsed = provider === 'groq' ? await callGroq(args) : await callGemini(args)
+    try {
+      const parsed = await provider.call({
+        apiKey: provider.key,
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt,
+        functionSchema: FUNCTION_SCHEMA,
+        onStep,
+      })
+      onStep?.({ label: 'Agent generated structured summary', detail: `via ${provider.label}` })
+      return parsed
+    } catch (err) {
+      lastError = err
+      onStep?.({
+        label: `${provider.label} unavailable`,
+        detail: providers.length > 1 ? 'falling back to next provider' : err.message?.slice(0, 90),
+      })
+    }
+  }
 
-  onStep?.({ label: 'Agent generated structured summary', detail: 'parsed successfully' })
-
-  return parsed
+  throw new Error(`All configured providers failed. Last error: ${lastError?.message || 'unknown'}`)
 }

@@ -27,15 +27,18 @@ export default function ScanSweep({ onComplete }) {
         onAnimationComplete={onComplete}
       />
 
-      {/* faint document silhouette suggestion, fades as line passes */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <motion.div
-          className="w-[300px] sm:w-[360px] aspect-[3/4] rounded-[3px] bg-paper-100"
-          initial={{ opacity: 0.9, scale: 1 }}
-          animate={{ opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.85, ease: 'easeOut' }}
-        />
-      </div>
+      {/* faint grid fade, echoing the intro's background instead of an unrelated box */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #F6F3EC 1px, transparent 1px), linear-gradient(to bottom, #F6F3EC 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+        initial={{ opacity: 0.04 }}
+        animate={{ opacity: 0 }}
+        transition={{ duration: 0.85, ease: 'easeOut' }}
+      />
     </motion.div>
   )
 }
